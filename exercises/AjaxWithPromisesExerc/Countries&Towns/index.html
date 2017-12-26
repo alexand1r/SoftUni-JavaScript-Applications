@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Countries and Towns</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <style>
+        #country-results {
+            background-color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        #town-results {
+            background-color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        #country-results tr {
+            background-color: #AAAAAA;
+            padding: 5vh;
+            font-size: 1.5vw;
+        }
+
+        #town-results tr {
+            background-color: #AAAAAA;
+            padding: 5vh;
+            font-size: 1.5vw;
+        }
+
+        #country-results tr:nth-child(odd) {
+            background-color: #808080;
+        }
+
+        #town-results tr:nth-child(odd) {
+            background-color: #808080;
+        }
+
+        #country-results tr:first-child {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 2vw;
+        }
+
+        #town-results tr:first-child {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 2vw;
+        }
+
+        #country-results tr th {
+            padding: 1vw;
+        }
+
+        #town-results tr th {
+            padding: 1vw;
+        }
+
+        #country-results tr td {
+            padding: 1vw;
+            transition: font-size 0.2s;
+        }
+
+        #town-results tr td {
+            padding: 1vw;
+            transition: font-size 0.2s;
+        }
+
+        #town-results tr:not(:first-child):hover {
+            background-color: #F0F8FF;
+            color: #000000;
+            font-size: 2.25vw;
+        }
+
+        #country-results tr:not(:first-child):hover {
+            background-color: #F0F8FF;
+            color: #000000;
+            font-size: 2.25vw;
+        }
+    </style>
+</head>
+<body>
+<form action="#" id="add-new-country">
+    <fieldset>
+        <legend>Add Country</legend>
+        <div>
+            <label for="country-id">Id:</label>
+            <input type="number" id="country-id" required>
+        </div>
+        <div>
+            <label for="country-name">Country:</label>
+            <input type="text" id="country-name" required>
+        </div>
+        <input type="submit" value="Insert Country">
+    </fieldset>
+</form>
+<form action="#" id="add-new-town">
+    <fieldset>
+        <legend>Add Town</legend>
+        <div>
+            <label for="town-id">Id:</label>
+            <input type="number" id="town-id" required>
+        </div>
+        <div>
+            <label for="town-name">Town Name:</label>
+            <input type="text" id="town-name" required>
+        </div>
+        <div>
+            <label for="country">Country:</label>
+            <input type="text" id="country" required>
+        </div>
+        <input type="submit" value="Insert Town">
+    </fieldset>
+</form>
+<hr>
+<table id="country-results">
+    <tr>
+        <th>Country ID</th>
+        <th>Country Name</th>
+        <th>Actions</th>
+    </tr>
+</table>
+<br>
+<select id="countries">
+    <option>Select Country</option>
+</select>
+<button type="button" id="viewTown">View Town</button>
+<br>
+<table id="town-results">
+    <tr>
+        <th>Town ID</th>
+        <th>Town Name</th>
+        <th>Country</th>
+        <th>Actions</th>
+    </tr>
+</table>
+<script>
+    const username = 'guest';
+    const password = 'guest';
+    const appId = 'kid_HyJQOhVMe';
+    const appSecret = 'ff3db4caef5347ee8bcee64f26b1fb40';
+    const basicAuthHeader = {Authorization: `Basic ${btoa(appId + ':' + appSecret)}`};
+    const baseUrl = `https://baas.kinvey.com/appdata/${appId}/countries/`;
+    const baseUrlTowns = `https://baas.kinvey.com/appdata/${appId}/towns/`;
+    const loginUrl = `https://baas.kinvey.com/user/${appId}/login/`;
+    const countryContainer = $('#country-results');
+    const townContainer = $('#town-results');
+
+    let sessionToken = null;
+    function displayCountriesAndTowns() {
+
+
+        //login
+        $.post({
+            url:loginUrl,
+            headers:basicAuthHeader,
+            data:JSON.stringify({
+                username, password
+            }),
+            contentType: 'application/json'
+        })
+            .then((data) => sessionToken = data._kmd.authtoken)
+            .then(getCountries)
+            .then(bindEvents)
+            .catch(renderError);
+
+        function getCountries() {
+            $.get({
+                url: baseUrl,
+//                headers:basicAuthHeader,
+                headers: {Authorization: `Kinvey ${sessionToken}`}
+            })
+                .then(renderCountries)
+                .catch(renderError)
+        }
+
+        function bindEvents() {
+            $('#add-new-country').on('submit', addNewCountry);
+            $('#add-new-town').on('submit', addNewTown);
+        }
+
+        function renderCountries(countries) {
+            $('#countries').find($('option.option')).remove();
+            $('#country-results').find('tr.row').remove();
+//            console.log(countries);
+            countries.sort((a,b)=>a.id-b.id);
+            for (let country of countries) {
+                let row = $('<tr class="row">');
+                row
+                    .append($('<td>').text(country.id))
+                    .append($('<td>').text(country.name));
+
+                let link = $('<button>').text('[Delete]').on('click',()=>deleteCountry(country._id));
+                row.append(link);
+                row.appendTo(countryContainer);
+
+                let option = $(`<option class="option" value="${country._id}">`)
+                    .text(country.name);
+
+                option.appendTo($('#countries'));
+            }
+        }
+
+        function deleteCountry(id) {
+            $.ajax({
+                method: 'DELETE',
+                headers: {Authorization: `Kinvey ${sessionToken}`},
+                url: baseUrl + id,
+                success:getCountries(),
+                error:renderError()
+            })
+        }
+
+        function addNewCountry(event) {
+            event.preventDefault();
+            let id = Number($('#country-id').val().trim());
+            let countryName = $('#country-name').val().trim();
+
+            $.ajax({
+                method: 'POST',
+                url: baseUrl,
+                headers: {Authorization: `Kinvey ${sessionToken}`},
+                data: JSON.stringify({
+                    id: id,
+                    name: countryName,
+                }),
+                contentType: 'application/json'
+            })
+                .then(clearInputs)
+                .then(getCountries)
+                .catch(renderError)
+        }
+
+        function getTowns() {
+            $.get({
+                url: baseUrlTowns,
+//                headers:basicAuthHeader,
+                headers: {Authorization: `Kinvey ${sessionToken}`}
+            })
+                .then(renderTowns)
+                .catch(renderError)
+        }
+
+        function renderTowns(towns) {
+            $('#town-results').find('tr.row').remove();
+            for (let town of towns) {
+                let row = $('<tr class="row">');
+                row
+                    .append($('<td>').text(town.id))
+                    .append($('<td>').text(town.name))
+                    .append($('<td>').text(town.country));
+//            console.log(row);
+                row.appendTo(townContainer);
+            }
+        }
+
+        function addNewTown(event) {
+            event.preventDefault();
+            let id = Number($('#town-id').val().trim());
+            let townName = $('#town-name').val().trim();
+            let country = $('#country').val().trim();
+
+            $.ajax({
+                method: 'POST',
+                url: baseUrlTowns,
+                headers: {Authorization: `Kinvey ${sessionToken}`},
+                data: JSON.stringify({
+                    id: id,
+                    name: townName,
+                    country: country
+                }),
+                contentType: 'application/json'
+            })
+                .then(clearInputs)
+                .then(getTowns)
+                .catch(renderError)
+        }
+
+        function clearInputs() {
+            $('input[id]').val('')
+        }
+
+        function renderError(error) {
+            console.dir(error);
+        }
+    }
+
+    $(document).ready(function() {
+        displayCountriesAndTowns();
+        $('#viewTown').click(getTown);
+        function getTown() {
+            let id = $('#countries option:selected').val();
+            $.get({
+                url:baseUrlTowns + `?query={"country":"${id}"}`,
+                headers: {Authorization: `Kinvey ${sessionToken}`}
+            })
+                .then(renderTown)
+                .catch(renderError)
+        }
+
+        function renderTown(towns) {
+            $('#town-results').find('tr.row').remove();
+            for (let town of towns) {
+                let row = $('<tr class="row">');
+                row
+                    .append($('<td>').text(town.id))
+                    .append($('<td>').text(town.name))
+                .append($('<td>').text(town.country));
+//            console.log(row);
+                row.appendTo(townContainer);
+            }
+        }
+    });
+</script>
+</body>
+</html>

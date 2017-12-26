@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shit</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <style>
+        #results {
+            background-color: #FFFFFF;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        #results tr {
+            background-color: #AAAAAA;
+            padding: 5vh;
+            font-size: 1.5vw;
+        }
+
+        #results tr:nth-child(odd) {
+            background-color: #808080;
+        }
+
+        #results tr:first-child {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 2vw;
+        }
+
+        #results tr th {
+            padding: 1vw;
+        }
+
+        #results tr td {
+            padding: 1vw;
+            transition: font-size 0.2s;
+        }
+
+        #results tr:not(:first-child):hover {
+            background-color: #F0F8FF;
+            color: #000000;
+            font-size: 2.25vw;
+        }
+
+    </style>
+</head>
+<body>
+<form action="#" id="add-new-student">
+    <fieldset>
+        <legend>Add Student</legend>
+        <div>
+            <label for="id">Id:</label>
+            <input type="number" id="id" required>
+        </div>
+        <div>
+            <label for="first-name">First Name:</label>
+            <input type="text" id="first-name" required>
+        </div>
+        <div>
+            <label for="last-name">Last name:</label>
+            <input type="text" id="last-name" required>
+        </div>
+        <div>
+            <label for="faculty-number">Faculty Number:</label>
+            <input type="text" id="faculty-number" required>
+        </div>
+        <div>
+            <label for="grade">Grade:</label>
+            <input type="number" id="grade" required>
+        </div>
+        <input type="submit" value="Insert">
+    </fieldset>
+</form>
+<hr>
+<table id="results">
+    <tr>
+        <th>ID</th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Faculty Number</th>
+        <th>Grade</th>
+    </tr>
+</table>
+<!--<script src="script.js"></script>-->
+<script>
+    function displayStudents() {
+        const username = 'guest';
+        const password = 'guest';
+        const basicAuthHeader = {Authorization: `Basic ${btoa(username + ':' + password)}`};
+        const appId = 'kid_BJXTsSi-e';
+        const baseUrl = `https://baas.kinvey.com/appdata/${appId}/students/`;
+        const loginUrl = `https://baas.kinvey.com/user/${appId}/login/`;
+        const studentsContainer = $('#results');
+
+        let sessionToken = null;
+
+        // Login
+        $.post({
+            url: loginUrl,
+            headers: basicAuthHeader,
+            data: JSON.stringify({
+                username, password
+            }),
+            contentType: 'application/json'
+        })
+            .then((data) => sessionToken = data._kmd.authtoken)
+            .then(getStudents)
+            .then(bindEvents)
+            .catch(renderError);
+
+        function getStudents() {
+            $.get({
+                url: baseUrl,
+                headers: {Authorization: `Kinvey ${sessionToken}`}
+            })
+                .then(renderStudents)
+                .catch(renderError)
+        }
+
+        function renderStudents(students) {
+            $('#results').find('tr.row').remove();
+            students.sort((stA, stB) => stA.ID - stB.ID);
+            for (let student of students) {
+                let row = $('<tr class="row">');
+                row
+                    .append($('<td>').text(student.ID))
+                    .append($('<td>').text(student.FirstName))
+                    .append($('<td>').text(student.LastName))
+                    .append($('<td>').text(student.FacultyNumber))
+                    .append($('<td>').text(student.Grade));
+
+                row.appendTo(studentsContainer);
+            }
+        }
+
+        function bindEvents() {
+            $('#add-new-student').on('submit', addNewStudent)
+        }
+
+        function addNewStudent(event) {
+            event.preventDefault();
+            let id = Number($('#id').val().trim());
+            let firstName = $('#first-name').val().trim();
+            let lastName = $('#last-name').val().trim();
+            let facultyNumber = $('#faculty-number').val().trim();
+            let grade = Number($('#grade').val().trim());
+
+            $.ajax({
+                method: 'POST',
+                url: baseUrl,
+                headers: {Authorization: `Kinvey ${sessionToken}`},
+                data: JSON.stringify({
+                    ID: id,
+                    FirstName: firstName,
+                    LastName: lastName,
+                    FacultyNumber: facultyNumber,
+                    Grade: grade
+                }),
+                contentType: 'application/json'
+            })
+                .then(clearInputs)
+                .then(getStudents)
+                .catch(renderError)
+        }
+
+        function clearInputs() {
+            $('input[id]').val('')
+        }
+
+        function renderError(error) {
+            console.dir(error);
+        }
+    }
+
+    displayStudents();
+
+</script>
+</body>
+</html>
